@@ -333,8 +333,8 @@
 			{
 				$client = array_shift($clientsMatchingIpAddress);
 
-				if(USE_LINK_CACHE && (string)$client["client_unique_identifier"] != TEAMSPEAK_CONNECTION_PARAMS["queryUserName"]) 
-					$this->_linkCache->createLink($steamId, (string)$client["client_unique_identifier"]);
+				if(USE_LINK_CACHE && $this->getTeamSpeakClientID($client) != TEAMSPEAK_CONNECTION_PARAMS["queryUserName"]) 
+					$this->_linkCache->createLink($steamId, $this->getTeamSpeakClientID($client));
 				
 				return $client;
 			}else{
@@ -344,8 +344,8 @@
 			
 			if(isset($clientMatchingName))
 			{
-				if(USE_LINK_CACHE && (string)$clientMatchingName["client_unique_identifier"] != TEAMSPEAK_CONNECTION_PARAMS["queryUserName"]) 
-					$this->_linkCache->createLink($steamId, (string)$clientMatchingName["client_unique_identifier"]);
+				if(USE_LINK_CACHE && $this->getTeamSpeakClientID($clientMatchingName) != TEAMSPEAK_CONNECTION_PARAMS["queryUserName"]) 
+					$this->_linkCache->createLink($steamId, $this->getTeamSpeakClientID($clientMatchingName));
 				
 				return $clientMatchingName;
 			}
@@ -362,7 +362,7 @@
 				{
 					if(DECISION_PERCENTAGE && $percent < DECISION_PERCENTAGE * 100) continue;
 					
-					$similarityToClients[(string)$client["client_unique_identifier"]] = $percent;
+					$similarityToClients[$this->getTeamSpeakClientID($client)] = $percent;
 				}
 			}
 			
@@ -373,8 +373,8 @@
 				$clientUids = array_keys($similarityToClients);
 				$client = $this->_teamSpeak->clientGetByUid(array_shift($clientUids));
 				
-				if(USE_LINK_CACHE && (string)$client["client_unique_identifier"] != TEAMSPEAK_CONNECTION_PARAMS["queryUserName"]) 
-					$this->_linkCache->createLink($steamId, (string)$client["client_unique_identifier"]);
+				if(USE_LINK_CACHE && $this->getTeamSpeakClientID($client) != TEAMSPEAK_CONNECTION_PARAMS["queryUserName"]) 
+					$this->_linkCache->createLink($steamId, $this->getTeamSpeakClientID($client));
 				
 				return $client;
 			}
@@ -453,8 +453,9 @@
 			if(!is_dir(REQUEST_DIRECTORY)) mkdir(REQUEST_DIRECTORY);
 			
 			$client = $this->_teamSpeak->channelGetByName(CHANNEL_NAME)->clientGetByName($userName);
+			$teamSpeakId = $this->getTeamSpeakClientID($client);
 			
-			file_put_contents(REQUEST_DIRECTORY.$code, $client->getUniqueId());
+			file_put_contents(REQUEST_DIRECTORY.$code, $teamSpeakId);
 			
 			$client->poke("Code: ".$code);
 			
@@ -485,12 +486,13 @@
 			}
 			
 			$teamSpeakId = file_get_contents(REQUEST_DIRECTORY.$code);
+			$client = $this->_teamSpeak->clientGetByUid($teamSpeakId);
 			
 			$this->_linkCache->createLink($steamId, $teamSpeakId);
 			
-			if($grantTalkPowerOnJoin) $this->_teamSpeak->clientGetByUid($teamSpeakId)->modify(array(
-				"CLIENT_IS_TALKER" => 1
-			));
+			if(GRANT_TALK_POWER_ON_JOIN) {
+				$this->setTalkPower(true, $client);
+			}
 			
 			@unlink(REQUEST_DIRECTORY.$code);
 			
@@ -599,9 +601,7 @@
 				try {
 					if(GRANT_TALK_POWER_ON_JOIN)
 					{
-						$client->modify(array(
-							"CLIENT_IS_TALKER" => 1
-						));
+						$this->setTalkPower(true, $client);
 					}
 				}catch(Exception $ex){
 					$this->debug("An exception has occured.", $ex);
@@ -633,6 +633,15 @@
 			}catch(Exception $ex){
 				$this->debug("An exception has occured.", $ex);
 			}
+		}
+		
+		/**
+		 * Returns the given TeamSpeak client's unique user ID.
+		 * @param $client TeamSpeak3_Node_Client
+		 */
+		private function getTeamSpeakClientID($client)
+		{
+			return (string)$client["client_unique_identifier"];
 		}
 		
 		# endregion

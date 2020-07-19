@@ -3,6 +3,10 @@
 -- @license MIT
 -- @date 2019-06-22
 
+if CLIENT || !SERVER then
+	return
+end
+
 -- Fields
 
 -- URL to the PHP script
@@ -433,42 +437,51 @@ end
 
 -- Script
 
-log("Loading TeamSpeak 3 bridge")
+-- Wait until the HTTP module is ready (which is not the case in the Initialize hook)
+hook.Add("Think", "Think_ts3_bridge",
+	function()
 
-static_params = static_params or {}
+		hook.Remove("Think", "Think_ts3_bridge")
 
-if not is_nil_or_empty(ts_bridge_key) then
+		log("Loading TeamSpeak 3 bridge")
 
-	try(function() -- try
-			
-			-- Fetch the api version
-			http_get({action="version"}, 
-				function(response)
-					-- Get the api version
-					version = tonumber(response) or 1
-				
-					-- Add the api version to the static parameters for every request
-					static_params.version = version
+		static_params = static_params or {}
+
+		if not is_nil_or_empty(ts_bridge_key) then
+
+			try(function() -- try
 					
-					setup()
+					-- Fetch the api version
+					http_get({action="version"}, 
+						function(response)
+							-- Get the api version
+							version = tonumber(response) or 1
+						
+							-- Add the api version to the static parameters for every request
+							static_params.version = version
+							
+							setup()
+						end
+					)
+				end,
+				function(exception) -- catch
+					
+					-- Improved error handling
+					
+					if(string.match(exception, "Assertion Failed: pHost && *pHost")) then
+						log("The given uri is invalid. Did you maybe forget the quotation marks enclosing the uri in the server configuration?")
+					else
+						log(exception)
+					end
+				
 				end
 			)
-		end,
-		function(exception) -- catch
-			
-			-- Improved error handling
-			
-			if(string.match(exception, "Assertion Failed: pHost && *pHost")) then
-				log("The given uri is invalid. Did you maybe forget the quotation marks enclosing the uri in the server configuration?")
-			else
-				log(exception)
-			end
-		
-		end
-	)
 
-else
-	log("TS3 Bridge uri is empty")
-end
+		else
+			log("TS3 Bridge uri is empty")
+		end
+
+	end
+)
 
 -- End Script

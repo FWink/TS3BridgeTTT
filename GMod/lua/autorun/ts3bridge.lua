@@ -38,7 +38,7 @@ static_params = {key=ts_bridge_key}
 version = 1
 
 -- Set the help message for the chat command
-help_message = "The !tsbridge command allows you to manually link a player to a TeamSpeak user.\nUse !tsbridge list or !tsbridge [PlayerName] or !tsbridge [TeamSpeakID] first.\nThis will, if the TeamSpeak user is found, send the TeamSpeak user a message with a code.\nUse !tsbridge activate [code] to finish the link.\nUse !tsbridge unlink or !tsbridge unlink [Name] or !tsbridge unlink [SteamID] or !tsbridge unlink [TeamSpeakID] to remove a link between a user and TeamSpeak user."
+help_message = "The !tsbridge command allows you to manually link a player to a TeamSpeak user.\nUse \"!tsbridge show\" to get a list of all active TeamSpeak users. Lookup your number in that list and type \"!tsbridge request [NUMBER]\".\nYou'll then receive a code in TeamSpeak. Enter that code via \"!tsbridge activate [CODE]\" and you are done! Your Steam account is now linked to your TeamSpeak client.\nUse \"!tsbridge unlink\" to remove that link again."
 user_list = {}
 
 -- End Fields
@@ -246,6 +246,25 @@ local function hook_end_round()
 	)
 end
 
+local function hook_player_respawn()
+	hook.Add("player_spawn", "player_respawn_ts3_bridge", 
+		function(data)
+			ply = Player(data.userid)
+			
+			if not ply:IsBot() then
+
+				--TODO what happens here if we're not running TTT2 ?
+				if hook.Run("TTT2CanUseVoiceChat", ply, false) == false then
+					--player is not allowed to talk (e.g. because they revived as Shinigami)
+					return
+				end
+
+				unmute(ply:SteamID(), ply:IPAddress(), ply:Nick())
+			end
+		end
+	)
+end
+
 warning_queue = {}
 
 local function init_player_kick(ply)
@@ -298,8 +317,9 @@ local function init_player_kick(ply)
 	end
 end
 
-local function hook_player_spawn()
-	hook.Add("player_spawn", "player_spawn_ts3_bridge", 
+local function hook_player_join()
+	--TODO is this called on map change as well?
+	hook.Add("player_connect_client", "player_join_ts3_bridge", 
 		function(data)
 			ply = Player(data.userid)
 			
@@ -366,9 +386,10 @@ local function hook_player_say()
 								table.insert(user_list, line)
 								
 								ply:ChatPrint(index .. ". " .. line)
+								index = index + 1
 							end
 							
-							ply:ChatPrint("Use !tsbridge request [user number] to send that user a code.")
+							ply:ChatPrint("Use \"!tsbridge request [NUMBER]\" to send that user a code.")
 						end
 					)
 				elseif command == "request" then
@@ -418,6 +439,7 @@ local function setup()
 	gameevent.Listen( "PlayerDeath" )
 	gameevent.Listen( "PlayerSilentDeath" )
 	gameevent.Listen( "player_spawn" )
+	gameevent.Listen( "player_connect_client" )
 	gameevent.Listen( "player_disconnect" )
 	gameevent.Listen( "TTTBeginRound" )
 	gameevent.Listen( "TTTEndRound" )
@@ -427,7 +449,8 @@ local function setup()
 	
 	hook_begin_round()
 	hook_end_round()
-	hook_player_spawn()
+	hook_player_respawn()
+	hook_player_join()
 	hook_player_disconnect()
 	
 	log("Hooks applied")

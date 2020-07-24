@@ -520,6 +520,8 @@
 		 */
 		private function mute()
 		{
+			$this->debug("Attempting to mute ".$this->_params["user_name"]." using the ip address ".$this->_params["ip_address"]." and Steam id ".$this->_params["steamID"]."...");
+			
 			$client = $this->getTeamSpeakClient($this->_params["steamID"], $this->_params["ip_address"], $this->_params["user_name"]);
 			
 			if(isset($client))

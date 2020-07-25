@@ -253,7 +253,8 @@ local function hook_player_respawn()
 			
 			if not ply:IsBot() then
 
-				--TODO what happens here if we're not running TTT2 ?
+				--TTT2 compatibility: this should handle all properly implemented plugins that mute a player on revive
+				--if we're not running TTT2 then this will have no effect
 				if hook.Run("TTT2CanUseVoiceChat", ply, false) == false then
 					--player is not allowed to talk (e.g. because they revived as Shinigami)
 					return
@@ -318,13 +319,14 @@ local function init_player_kick(ply)
 end
 
 local function hook_player_join()
-	--TODO is this called on map change as well?
-	hook.Add("player_connect_client", "player_join_ts3_bridge", 
+
+	--this is called when a player connects, not during a map change
+	-- => move the player to the proper teamspeak channel
+	hook.Add("player_connect", "player_join_ts3_bridge", 
 		function(data)
-			ply = Player(data.userid)
-			
-			if not ply:IsBot() then
-				connect(ply:SteamID(), ply:IPAddress(), ply:Nick(),
+
+			if data.bot == 0 then
+				connect(data.networkid, data.address, data.name,
 					function(response)
 						if(response ~= "OK" and version < 2 or response ~= "" and version >= 2) then
 							if ply then
@@ -439,7 +441,7 @@ local function setup()
 	gameevent.Listen( "PlayerDeath" )
 	gameevent.Listen( "PlayerSilentDeath" )
 	gameevent.Listen( "player_spawn" )
-	gameevent.Listen( "player_connect_client" )
+	gameevent.Listen( "player_connect" )
 	gameevent.Listen( "player_disconnect" )
 	gameevent.Listen( "TTTBeginRound" )
 	gameevent.Listen( "TTTEndRound" )

@@ -316,6 +316,14 @@
 			
 			foreach($this->getClientList() as $client)
 			{
+				//check if we know this client already
+				//=> ignore them to find the one client that matches via IP address or name
+				if($this->isTeamSpeakClientLinked($client))
+				{
+					//ignore this one and continue
+					continue;
+				}
+
 				if($ipAddress == $client->connection_client_ip)
 				{
 					$clientsMatchingIpAddress[] = $client;
@@ -356,6 +364,12 @@
 			
 			foreach($this->getClientList() as $client)
 			{
+				//don't accidentally match with already linked clients
+				if($this->isTeamSpeakClientLinked($client))
+				{
+					continue;
+				}
+
 				similar_text($userName, strval($client), $percent);
 				
 				if(DECISION_PERCENTAGE || !defined("DECISION_PERCENTAGE"))
@@ -645,6 +659,25 @@
 		{
 			return (string)$client["client_unique_identifier"];
 		}
+
+		/**
+		 * Returns true if the given TeamSpeak client is already stored in our LinkCache.
+		 * @param $client TeamSpeak3_Node_Client
+		 */
+		private function isTeamSpeakClientLinked($client)
+		{
+			if(USE_LINK_CACHE)
+			{
+				$steamIdStored = $this->_linkCache->getLinkReverse($this->getTeamSpeakClientID($client));
+				if(isset($steamIdStored))
+				{
+					//is stored
+					return true;
+				}
+			}
+
+			return false;
+		}
 		
 		# endregion
 	}
@@ -672,6 +705,13 @@
 		 * @returns TeamSpeak Id
 		 */
 		public function getLink($steamId);
+		
+		/**
+		 * Reverse of {@link getLink}: returns the steam ID for a given TeamSpeak ID
+		 * @param string $teamSpeakId
+		 * @returns Steam ID
+		 */
+		public function getLinkReverse($teamSpeakId);
 		
 		# endregion
 	}
@@ -750,6 +790,26 @@
 				return $this->_links[$steamId];
 			}
 			
+			return null;
+		}
+		
+		/**
+		 * Reverse of {@link getLink}: returns the steam ID for a given TeamSpeak ID
+		 * @param string $teamSpeakId
+		 * @returns Steam ID
+		 */
+		public function getLinkReverse($teamSpeakId)
+		{
+			//not very efficient for a large database but we don't expect to use this very often
+			//and our database won't grow that big really
+			foreach($this->_links as $steamId => $teamSpeakIdStored)
+			{
+				if($teamSpeakId == $teamSpeakIdStored)
+				{
+					return $steamId;
+				}
+			}
+
 			return null;
 		}
 		
